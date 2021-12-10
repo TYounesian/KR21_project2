@@ -38,12 +38,28 @@ class BNReasoner:
         pruned_net = copy.deepcopy(self.bn)
         
         for i in range(len(leaf_nodes)):
-            pruned_net.del_var(leaf_nodes[i])    
+            pruned_net.del_var(leaf_nodes[i])  # node pruning  
         
-        z_children = self.bn.get_children(z)
+        z_children = pruned_net.get_children(z)
         for j in range(len(z_children)):
-            pruned_net.del_edge([z, z_children[j]])
-        # test_net.bn.draw_structure()
+            pruned_net.del_edge([z, z_children[j]]) # edge pruning
+        pruned_net.draw_structure()
+        # Check if the network is separated 
+        
+        vars_children = []
+        pruned_net_vars = pruned_net.get_all_variables()
+        for var in range(len(pruned_net_vars)):
+            vars_children.append(pruned_net.get_children(pruned_net_vars[var]))
+
+            if pruned_net.get_children(pruned_net_vars[var]) == []: # nodes without childeren
+                #pdb.set_trace()
+                for i in range(len(pruned_net_vars)): # check if that node appears in any other node's children list
+                    if (pruned_net_vars[var] in set(pruned_net.get_children(pruned_net_vars[i]))): # it's some node's child
+                        vars_children = []
+                        break # go to the next node
+                if not(pruned_net_vars[var] in set(pruned_net.get_children(pruned_net_vars[i]))): #it's no node's child
+                    print ("Network separated") 
+                    break
 
 
 
