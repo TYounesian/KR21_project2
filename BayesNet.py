@@ -6,7 +6,7 @@ import math
 import itertools
 import pandas as pd
 from copy import deepcopy
-
+import pdb
 
 class BayesNet:
 
