@@ -38,16 +38,17 @@ class BNReasoner:
         for i in range(len(leaf_nodes)):
             pruned_net.del_var(leaf_nodes[i])    
         
-
+        
         z_children = self.bn.get_children(z)
+        pdb.set_trace()
         for j in range(len(z_children)):
-            pruned_net.del_edge(z, z_children[j])
-
+            pruned_net.del_edge([z, z_children[j]])
+        test_net.bn.draw_structure()
 
 
 
 
 test_net = BNReasoner('testing/dog_problem.BIFXML')
 test_net.bn.draw_structure()
-test_net.dSep('bowel-problem', 'family-out', 'dog-out')
+test_net.dSep('bowel-problem', 'dog-out', 'family-out')
 # pdb.set_trace()
