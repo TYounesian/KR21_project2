@@ -24,7 +24,6 @@ class BNReasoner:
         :param variables: variables to check independence with the given order
 
         """ 
-
         net_variables = self.bn.get_all_variables()
         w = [var for var in net_variables if var not in [x,y,z]]
         
@@ -52,7 +51,6 @@ class BNReasoner:
             vars_children.append(pruned_net.get_children(pruned_net_vars[var]))
 
             if pruned_net.get_children(pruned_net_vars[var]) == []: # nodes without childeren
-                #pdb.set_trace()
                 for i in range(len(pruned_net_vars)): # check if that node appears in any other node's children list
                     if (pruned_net_vars[var] in set(pruned_net.get_children(pruned_net_vars[i]))): # it's some node's child
                         vars_children = []
@@ -62,7 +60,25 @@ class BNReasoner:
                     break
 
 
+    def Net_pruning(self, q, e):
+        """
+        Node and Endge pruning with the aim to keep P(Q|E) consistent
+        :param variables: set of given variables q and given evidence e
+        """
 
+        # Node Pruning:
+        net_variables = self.bn.get_all_variables()
+        rest_variables = [var for vars in net_variables not in [q,e]]
+
+        pruned_net = copy.deepcopy(self.bn)
+        leaf_nodes = []
+        for var in range(len(rest_variables)):
+            children = self.bn.get_children(rest_variables[var])
+            if children == []:
+                leaf_nodes.append(rest_variables[var])
+                pruned_net.del_var(rest_variables[var])
+        
+        
 
 test_net = BNReasoner('testing/dog_problem.BIFXML')
 test_net.bn.draw_structure()
