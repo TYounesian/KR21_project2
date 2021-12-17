@@ -95,13 +95,15 @@ class BNReasoner:
                     queue.append(neighbor)
         return True
 
-    def minDegreeOrder(self):
+    def minDegreeOrder(self, bn=None):
         """
         Always chooses the smallest degree (smallest width - smallest number of neighbors)
         :returns an ordering pi of variables of the BN
         """
-        g = self.bn.get_interaction_graph()
-        x = self.bn.get_all_variables()
+        if not bn:
+            bn = self.bn
+        g = bn.get_interaction_graph()
+        x = bn.get_all_variables()
         pi = []
         # for node in x:
         #     print(node, g.adj[node].items())
@@ -119,13 +121,15 @@ class BNReasoner:
             x.remove(pi[i])
         return pi
 
-    def minFillOrder(self):
+    def minFillOrder(self, bn=None):
         """
         Always chooses the node whose elimination adds the smallest number of edges
         :returns an ordering pi of variables of the BN
         """
-        g = self.bn.get_interaction_graph()
-        x = self.bn.get_all_variables()
+        if not bn:
+            bn = self.bn
+        g = bn.get_interaction_graph()
+        x = bn.get_all_variables()
         pi = []
         for i in range(len(x)):
             n_edges = []
@@ -188,8 +192,19 @@ class BNReasoner:
                 break
         return bn
 
-    def marginal_dist(self, q, e=None):
-        pass
+    def marginal_dist(self, q, e={}):
+        """
+        Calculates the marginal probability of the set of variables q, given possible evidence e
+        :returns: CPT for the set of variable q
+        """
+        bn = self.network_pruning(q, e)
+        s = bn.get_all_cpts()
+        pi = self.minFillOrder(bn)
+        for node in pi:
+            # First the multiplication of every table that has the variable
+            print(node, s.keys())
+            # Then the summation
+
 
     def map(self):
         pass

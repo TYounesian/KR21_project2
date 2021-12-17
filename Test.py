@@ -17,8 +17,8 @@ reasoner = BNReasoner('testing\lecture_example.BIFXML')
 #subax1 = plt.subplot(121)
 #nx.draw(reasoner.bn.get_interaction_graph(), with_labels=True, font_weight='bold')
 #plt.show()
-#print("Min Degree order: ",reasoner.minDegreeOrder())
-#print("Min Fill order: ", reasoner.minFillOrder())
+# print("Min Degree order: ",reasoner.minDegreeOrder())
+# print("Min Fill order: ", reasoner.minFillOrder())
 #print(reasoner.d_sep(['bowel-problem', ['family-out'], ['light-on']]))
 #print(reasoner.d_sep(['bowel-problem', ['dog-out'], ['hear-bark']]))
 #reasoner.d_sep(['light-on', ['bowel-problem', 'dog-out'], ['family-out']])
@@ -31,9 +31,10 @@ reasoner = BNReasoner('testing\lecture_example.BIFXML')
 #e = {'dog-out': True, 'family-out': True}
 q = ['Wet Grass?']
 e = {'Winter?': True, 'Rain?': False}
-bn = reasoner.network_pruning(q, e)
-all_cpts = bn.get_all_cpts()
-
-for node in all_cpts:
-    print(bn.get_cpt(node))
-bn.draw_structure()
+reasoner.marginal_dist(q, e)
+# bn = reasoner.network_pruning(q, e)
+# all_cpts = bn.get_all_cpts()
+# 
+# for node in all_cpts:
+#     print(bn.get_cpt(node))
+# bn.draw_structure()
