@@ -3,6 +3,9 @@ from BayesNet import BayesNet
 import sys
 from copy import deepcopy
 import itertools
+import matplotlib.pyplot as plt
+import networkx as nx
+
 
 class BNReasoner:
     def __init__(self, net: Union[str, BayesNet]):
@@ -200,9 +203,28 @@ class BNReasoner:
         bn = self.network_pruning(q, e)
         s = bn.get_all_cpts()
         pi = self.minFillOrder(bn)
+        #nx.draw(bn.get_interaction_graph(), with_labels=True, font_weight='bold')
+        #plt.show()
+        #bn.draw_structure()
         for node in pi:
-            # First the multiplication of every table that has the variable
-            print(node, s.keys())
+            mentions = [v for v in s.values() if node in v.columns and not v.equals(s[node])]
+            if len(mentions):
+                for i in range(len(mentions)):
+                    mentions[i]
+                false = s[node].loc[s[node][node] == False]['p']
+                true = s[node].loc[s[node][node] == True]['p']
+
+
+
+            # if len(toMultiply) != 1:
+            #     false = s[node].loc[s[node][node] == False]['p']
+            #     true = s[node].loc[s[node][node] == True]['p']
+            #
+            #     print()
+            #     print("-------------")
+        return "Over"
+                #print(v.columns)
+           # print(node)
             # Then the summation
 
 
