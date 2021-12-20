@@ -3,8 +3,10 @@ from BayesNet import BayesNet
 import sys
 from copy import deepcopy
 import itertools
+import pandas as pd
 import matplotlib.pyplot as plt
 import networkx as nx
+import numpy as np
 
 
 class BNReasoner:
@@ -19,7 +21,7 @@ class BNReasoner:
             self.bn.load_from_bifxml(net)
         else:
             self.bn = net
-
+        self.options = [True, False]
 
     def d_sep(self, variables):
         """
@@ -108,9 +110,6 @@ class BNReasoner:
         g = bn.get_interaction_graph()
         x = bn.get_all_variables()
         pi = []
-        # for node in x:
-        #     print(node, g.adj[node].items())
-        print([e for e in g.edges])
         for i in range(len(x)):
             n_neighbours = [len(g.adj[node].items()) for node in x]
             pi.append(x[n_neighbours.index(min(n_neighbours))])
@@ -180,11 +179,13 @@ class BNReasoner:
         bn = deepcopy(self.bn)
         # Remove edges
         for var in e.keys():
+            cpt = bn.get_cpt(var)
+            bn.update_cpt(var, cpt[cpt[var] == e[var]])
             for children in bn.get_children(var):
                 bn.del_edge([var, children])  # Remove edges
                 # Update CPT
                 cpt = bn.get_cpt(children)
-                bn.update_cpt(children, cpt[cpt[var] == e[var]].drop(columns=var))
+                bn.update_cpt(children, cpt[cpt[var] == e[var]])#.drop(columns=var))
         # Remove leaf nodes once again
         while True:  # Create an iterative loop
             leaf_nodes = self.get_leaf_nodes(bn)
@@ -200,32 +201,75 @@ class BNReasoner:
         Calculates the marginal probability of the set of variables q, given possible evidence e
         :returns: CPT for the set of variable q
         """
+        print("\nCalculating marginal distribution of {} given evidence {}.\n".format(q, e))
         bn = self.network_pruning(q, e)
         s = bn.get_all_cpts()
-        pi = self.minFillOrder(bn)
-        #nx.draw(bn.get_interaction_graph(), with_labels=True, font_weight='bold')
-        #plt.show()
-        #bn.draw_structure()
-        for node in pi:
-            mentions = [v for v in s.values() if node in v.columns and not v.equals(s[node])]
-            if len(mentions):
-                for i in range(len(mentions)):
-                    mentions[i]
-                false = s[node].loc[s[node][node] == False]['p']
-                true = s[node].loc[s[node][node] == True]['p']
+        pi = self.minDegreeOrder(bn)
+        for node in q:
+            pi.remove(node)
+
+        for i in range(len(pi)):
+            mentions = {}
+            for cp, cpt in s.items():
+                if pi[i] in cpt.columns:
+                    mentions[cp] = cpt
+            # Multiply the cpts that mention the node
+            f = self.multiply_factors(mentions.values(), pi[i], e)
+            # Replace the cpt-s with the new factor
+            s['f'+str(i)] = f
+            for k in mentions.keys():
+                del s[k]
+        # Normalise by evidence:
+        if e:
+            for cpt in s.values():
+                for k, v in e.items():
+                    e_cpt = bn.get_cpt(k)
+                    toDivide = float(e_cpt[e_cpt[k] == v]['p'])
+                    cpt['p'] /= toDivide
 
 
 
-            # if len(toMultiply) != 1:
-            #     false = s[node].loc[s[node][node] == False]['p']
-            #     true = s[node].loc[s[node][node] == True]['p']
-            #
-            #     print()
-            #     print("-------------")
-        return "Over"
-                #print(v.columns)
-           # print(node)
-            # Then the summation
+
+        return s
+
+    def multiply_factors(self, cpts, pi_i, evidence = {}):
+        """
+        :arg: cpts: The conditional probability tables (factors) to multiply
+        :return a factor corresponding to the product
+        """
+        # Initialize a dataframe Z
+        z_cols = [c for c in pd.concat(cpts, axis=0, ignore_index=True).columns if c != 'p']
+        z = pd.DataFrame(list(itertools.product(*[self.options for i in range(len(z_cols))])), columns=z_cols)
+        z['p'] = [1] * z.shape[0]
+        if evidence:
+            for key in evidence.keys():
+                if key in z_cols:
+                    z = z[z[key] == evidence[key]]
+        z.reset_index(inplace=True, drop=True)
+        # Find rows of z that are consistent with the cpt and multiply
+        for cpt in cpts:
+            for i, row_content in cpt.iterrows():
+                for i_z, row_content_z in z.iterrows():
+                    if all([row_content_z[c] == row_content[c] for c in cpt.columns if c != 'p']):
+                        z.iloc[i_z, -1] *= row_content['p']
+        # Summing out pi(i)
+        z.drop(columns=[pi_i], inplace=True)
+        cols = [col for col in z.columns if col != 'p']
+        toAdd = set()
+        for i, row in z.iterrows():
+            toCheck = [row[col] for col in cols]
+            for i2, row2 in z.iterrows():
+                toCompare = [row2[col] for col in cols]
+                if toCheck == toCompare and i2 != i and (i2, i) not in toAdd:
+                    toAdd.add((i, i2))
+        for i in range(len(toAdd)):
+            z.iloc[list(toAdd)[i][0], -1] += z.iloc[list(toAdd)[i][1], -1]
+        for i in range(len(toAdd)):
+            z.drop(list(toAdd)[i][1], inplace=True)
+        z.reset_index(inplace=True, drop=True)
+        print(z)
+        print("\n ======== \n")
+        return z
 
 
     def map(self):
