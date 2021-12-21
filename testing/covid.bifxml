@@ -118,52 +118,52 @@
 
 <DEFINITION>
 	<FOR>covid</FOR>
-	<GIVEN>vaccinated</GIVEN>
-	<GIVEN>weak-immune</GIVEN>
 	<GIVEN>smoker</GIVEN>
-	<TABLE>0.35 0.65 0.85 0.15 0.25 0.75 0.20 0.80 0.90 0.1 0.80 0.20 0.75 0.25 0.70 0.30 </TABLE>
+	<GIVEN>weak-immune</GIVEN>
+	<GIVEN>vaccinated</GIVEN>
+	<TABLE>0.35 0.65 0.15 0.85 0.25 0.75 0.20 0.80 0.90 0.1 0.80 0.20 0.75 0.25 0.70 0.30 </TABLE>
 </DEFINITION>
 
 <DEFINITION>
 	<FOR>self-test</FOR>
-	<GIVEN>smoker</GIVEN>
 	<GIVEN>covid</GIVEN>
+	<GIVEN>smoker</GIVEN>
 	<TABLE>0.99 0.01 0.19 0.81 0.98 0.02 0.13 0.87 </TABLE>
 </DEFINITION>
 
 <DEFINITION>
 	<FOR>ct-scan</FOR>
-	<GIVEN>weak-immune</GIVEN>
 	<GIVEN>covid</GIVEN>
+	<GIVEN>weak-immune</GIVEN>
 	<TABLE>0.99 0.01 0.10 0.90 0.98 0.02 0.04 0.96 </TABLE>
 </DEFINITION>
 
 <DEFINITION>
 	<FOR>pcr</FOR>
-	<GIVEN>covid</GIVEN>
-	<GIVEN>self-test</GIVEN>
 	<GIVEN>ct-scan</GIVEN>
+	<GIVEN>self-test</GIVEN>
+	<GIVEN>covid</GIVEN>
 	<TABLE>0.96 0.04 0.95 0.05 0.92 0.08 0.90 0.10 0.20 0.80 0.12 0.88 0.18 0.82 0.09 0.91 </TABLE>
 </DEFINITION>
 
 <DEFINITION>
 	<FOR>tests-match</FOR>
-	<GIVEN>pcr</GIVEN>
 	<GIVEN>self-test</GIVEN>
+	<GIVEN>pcr</GIVEN>
 	<TABLE>0 1 1 0 1 0 0 1 </TABLE>
 </DEFINITION>
 
 <DEFINITION>
-	<FOR>icu</FOR>
-	<GIVEN>ct-scan</GIVEN>
 	<GIVEN>pcr</GIVEN>
+	<GIVEN>ct-scan</GIVEN>
+	<FOR>icu</FOR>
 	<TABLE>0.88 0.12 0.87 0.13 0.85 0.15 0.80 0.20 </TABLE>
 </DEFINITION>
 
 <DEFINITION>
 	<FOR>death</FOR>
-	<GIVEN>pcr</GIVEN>
 	<GIVEN>icu</GIVEN>
+	<GIVEN>pcr</GIVEN>
 	<TABLE>0.91 0.09 0.25 0.75 0.95 0.05 0.37 0.63 </TABLE>
 </DEFINITION>
 

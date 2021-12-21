@@ -239,12 +239,11 @@ class BNReasoner:
         z_cols = [c for c in pd.concat(cpts, axis=0, ignore_index=True).columns if c != 'p']
         z = pd.DataFrame(list(itertools.product(*[self.options for i in range(len(z_cols))])), columns=z_cols)
         z['p'] = [1] * z.shape[0]
-        if evidence:
-            for key in evidence.keys():
-                if key in z_cols:
-                    z = z[z[key] == evidence[key]]
-        z.reset_index(inplace=True, drop=True)
+        z = self.exclude_evidence(z, evidence)
         # Find rows of z that are consistent with the cpt and multiply
+        print(type(cpts))
+        print(cpts)
+        print("\n***\n")
         for cpt in cpts:
             for i, row_content in cpt.iterrows():
                 for i_z, row_content_z in z.iterrows():
@@ -268,8 +267,133 @@ class BNReasoner:
         return z
 
 
-    def map(self):
-        pass
+    def map(self, vars, e={}, ordering="minFill"):
+        """
+        Maximises the value and instantiation of variables m given evidence e
+        :return instantiation and value
+        """
+        # Get the elimination order
+        if ordering == "minDegree":
+            pi = self.minDegreeOrder()
+        else:
+            pi = self.minFillOrder()
+        # Create a single table based on pi (and possible evidence e)
+        z = self.create_table()
+        z = self.exclude_evidence(z, e)
+        # Multiply all the variables
+        to_multiply = [self.bn.get_cpt(col) for col in pi]
+        z = self.multiply_factors(to_multiply, z)
+        # Sum out all the variables non-Map
+        pi = [c for c in pi if c not in vars]
+        z = self.summing_out(pi, z)
+        print(z)
+        # Max out the MAP variables one-by-one according to pi
+        # Return the most likely instantiation and it's probability
+        return z.iloc[z['p'].idxmax()]
 
-    def mpe(self):
-        pass
+    def mpe(self, e={}, ordering="minFill"):
+        """
+        Finds the Most Probable Explanation given possible evidence e
+        :return instantiation and value
+        """
+        """
+        Maximises the value and instantiation of variables m given evidence e
+        :return instantiation and value
+        """
+        # Get the elimination order
+        if ordering == "minDegree":
+            pi = self.minDegreeOrder()
+        else:
+            pi = self.minFillOrder()
+        # Create a single table based on pi (and possible evidence e)
+        z = self.create_table()
+        z = self.exclude_evidence(z, e)
+        # Multiply all the variables
+        to_multiply = [self.bn.get_cpt(col) for col in pi]
+        z = self.multiply_factors(to_multiply, z)
+        # Max out variables one-by-one according to pi
+        max_prob = self.maxing_out(pi, z)
+        # Return the most likely instantiation and it's probability
+        return max_prob
+
+    def multiply_factors(self, cpts, z):
+        """
+        Multiplies the corresponding rows of the cpts and z
+        :return z: a cpt containing all the p-values of the cpts
+        """
+        for cpt in cpts:
+            for i, row_content in cpt.iterrows():
+                for i_z, row_content_z in z.iterrows():
+                    if all([row_content_z[c] == row_content[c] for c in cpt.columns if c != 'p']):
+                        z.iloc[i_z, -1] *= row_content['p']
+        return z
+
+    def summing_out(self, ordering, cpt):
+        """
+        :return A cpt with variables in ordering summed out
+        """
+        for var in ordering:
+            cpt.drop(columns=[var], inplace=True)
+            cols = [col for col in cpt.columns if col != 'p']
+            toAdd = []
+            for i, row in cpt.iterrows():
+                toCheck = [row[col] for col in cols]
+                for i2, row2 in cpt.iterrows():
+                    toCompare = [row2[col] for col in cols]
+                    if toCheck == toCompare and i2 != i and (i2, i) not in toAdd:
+                        toAdd.append((i, i2))
+
+            for i in range(len(toAdd)):
+                cpt.iloc[toAdd[i][0], -1] += cpt.iloc[toAdd[i][1], -1]
+            for i in range(len(toAdd)):
+                cpt.drop(toAdd[i][1], inplace=True)
+            cpt.reset_index(inplace=True, drop=True)
+        return cpt
+
+    def maxing_out(self, ordering, cpt):
+        """
+        :return A cpt with variables in ordering summed out
+        """
+        checked = []
+        for var in ordering:
+            #cpt.drop(columns=[var], inplace=True)
+            #cols = [col for col in cpt.columns if col != 'p']
+            checked.append(var)
+            cols = [col for col in cpt.columns if ((col != 'p') and (col not in checked))]
+            toAdd = []
+            for i, row in cpt.iterrows():
+                toCheck = [row[col] for col in cols]
+                for i2, row2 in cpt.iterrows():
+                    toCompare = [row2[col] for col in cols]
+                    if toCheck == toCompare and i2 != i and (i2, i) not in toAdd:
+                        toAdd.append((i, i2))
+            print(toAdd)
+            for i in range(len(toAdd)):
+                cpt.iloc[toAdd[i][0], -1] = max(cpt.iloc[toAdd[i][1], -1], cpt.iloc[toAdd[i][0], -1])
+            for i in range(len(toAdd)):
+                cpt.drop(toAdd[i][1], inplace=True)
+            cpt.reset_index(inplace=True, drop=True)
+        return cpt
+
+
+    def create_table(self):
+        """
+        Creates a single CPT
+        :return
+        """
+        vars = self.bn.get_all_variables()
+        z = pd.DataFrame(list(itertools.product(*[self.options for i in range(len(vars))])), columns=vars)
+        z['p'] = [1] * z.shape[0]
+        return z
+
+    def exclude_evidence(self, cpt, evidence):
+        """
+        :return Returns the CPT without the rows contradicting the evidence
+        """
+        if not evidence: return cpt
+        else:
+            for key in evidence.keys():
+                if key in cpt.columns:
+                    cpt = cpt[cpt[key] == evidence[key]]
+            cpt.reset_index(inplace=True, drop=True)
+        return cpt
