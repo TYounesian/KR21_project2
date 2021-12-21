@@ -214,7 +214,7 @@ class BNReasoner:
                 if pi[i] in cpt.columns:
                     mentions[cp] = cpt
             # Multiply the cpts that mention the node
-            f = self.multiply_factors(mentions.values(), pi[i], e)
+            f = self.eliminate_variable(mentions.values(), pi[i], e)
             # Replace the cpt-s with the new factor
             s['f'+str(i)] = f
             for k in mentions.keys():
@@ -224,15 +224,13 @@ class BNReasoner:
             for cpt in s.values():
                 for k, v in e.items():
                     e_cpt = bn.get_cpt(k)
+                    e_cpt = e_cpt[e_cpt['p'] != 0]
                     toDivide = float(e_cpt[e_cpt[k] == v]['p'])
                     cpt['p'] /= toDivide
 
-
-
-
         return s
 
-    def multiply_factors(self, cpts, pi_i, evidence = {}):
+    def eliminate_variable(self, cpts, pi_i, evidence = {}):
         """
         :arg: cpts: The conditional probability tables (factors) to multiply
         :return a factor corresponding to the product
@@ -267,8 +265,6 @@ class BNReasoner:
         for i in range(len(toAdd)):
             z.drop(list(toAdd)[i][1], inplace=True)
         z.reset_index(inplace=True, drop=True)
-        print(z)
-        print("\n ======== \n")
         return z
 
 
