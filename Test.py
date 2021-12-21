@@ -8,5 +8,10 @@ from BNReasoner import BNReasoner
 # print(reasoner.map(q,e))
 
 reasoner = BNReasoner('testing\lecture_example2.BIFXML')
-e = {'J' :True, 'O':False}
-print(reasoner.mpe(e))
+# Classrooom example for MPE
+# e = {'J' :True, 'O':False}
+# print(reasoner.mpe(e))
+# Classrooom example for MAP
+q = ['I', 'J']
+e = {'O' :True}
+print(reasoner.map(q, e))
