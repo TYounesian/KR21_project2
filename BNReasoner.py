@@ -367,11 +367,15 @@ class BNReasoner:
                     toCompare = [row2[col] for col in cols]
                     if toCheck == toCompare and i2 != i and (i2, i) not in toAdd:
                         toAdd.append((i, i2))
-            print(toAdd)
+            toDrop = []
             for i in range(len(toAdd)):
-                cpt.iloc[toAdd[i][0], -1] = max(cpt.iloc[toAdd[i][1], -1], cpt.iloc[toAdd[i][0], -1])
-            for i in range(len(toAdd)):
-                cpt.drop(toAdd[i][1], inplace=True)
+                if cpt.iloc[toAdd[i][1], -1] <= cpt.iloc[toAdd[i][0], -1]: toDrop.append(toAdd[i][1])
+                else: toDrop.append(toAdd[i][0])
+                #cpt.iloc[toAdd[i][0], -1] = max(cpt.iloc[toAdd[i][1], -1], cpt.iloc[toAdd[i][0], -1])
+            # for i in range(len(toAdd)):
+            #     cpt.drop(toAdd[i][1], inplace=True)
+            for i in toDrop:
+                cpt.drop(i, inplace=True)
             cpt.reset_index(inplace=True, drop=True)
         return cpt
 
