@@ -241,9 +241,6 @@ class BNReasoner:
         z['p'] = [1] * z.shape[0]
         z = self.exclude_evidence(z, evidence)
         # Find rows of z that are consistent with the cpt and multiply
-        print(type(cpts))
-        print(cpts)
-        print("\n***\n")
         for cpt in cpts:
             for i, row_content in cpt.iterrows():
                 for i_z, row_content_z in z.iterrows():
@@ -315,6 +312,47 @@ class BNReasoner:
         # Return the most likely instantiation and it's probability
         return max_prob
 
+    def mpe2(self, e={}, ordering="minFill"):
+        """
+        Finds the Most Probable Explanation given possible evidence e
+        :return instantiation and value
+        """
+        # Create a single table based on pi (and possible evidence e)
+        bn = self.network_pruning([], e)
+        s = bn.get_all_cpts()
+        # Get the elimination order
+        if ordering == "minDegree":
+            pi = [var for var in self.minDegreeOrder() if var not in e.keys()]
+        else:
+            pi = [var for var in self.minFillOrder() if var not in e.keys()]
+        checked = []
+        print("Elimination order: {}".format(pi))
+        for i in range(len(pi)):
+            print("\tEliminating {}".format(pi[i]))
+            checked.append(pi[i])
+            mentions = {}
+            for cp, cpt in s.items():
+                if pi[i] in cpt.columns:
+                    mentions[cp] = cpt
+            # Multiply the cpts that mention the node
+            z = self.create_table2(mentions.values(), e)
+            print("\t\tCreated table {}".format(z))
+            print("\t\tMultiplying factors: {}".format(mentions.keys()))
+            f = self.multiply_factors(mentions.values(), z)
+            # Max out variables
+            print("\t\tMaxing out {}".format(f))
+            f = self.maxing_out2(checked, f)
+            print("\t\t\tmaxed out")
+            #f = self.eliminate_variable(mentions.values(), pi[i], e)
+            # Replace the cpt-s with the new factor
+            s['f'+str(i)] = f
+            for k in mentions.keys():
+                del s[k]
+        # Return the most likely instantiation and it's probability
+        return s
+
+
+
     def multiply_factors(self, cpts, z):
         """
         Multiplies the corresponding rows of the cpts and z
@@ -377,6 +415,44 @@ class BNReasoner:
                 cpt.drop(i, inplace=True)
             cpt.reset_index(inplace=True, drop=True)
         return cpt
+
+    def maxing_out2(self, checked, cpt):
+        """
+        :return A cpt with variables in ordering summed out
+        """
+        cols = [col for col in cpt.columns if (col != 'p') and (col not in checked)]
+        toAdd = []
+        for i, row in cpt.iterrows():
+            toCheck = [row[col] for col in cols]
+            for i2, row2 in cpt.iterrows():
+                toCompare = [row2[col] for col in cols]
+                if toCheck == toCompare and i2 != i and (i2, i) not in toAdd:
+                    toAdd.append((i, i2))
+        toDrop = set()
+        for i in range(len(toAdd)):
+            if cpt.iloc[toAdd[i][1], -1] <= cpt.iloc[toAdd[i][0], -1]: toDrop.add(toAdd[i][1])
+            else: toDrop.add(toAdd[i][0])
+        print("\t\t Dropping rows: {}".format(toDrop))
+        for i in toDrop:
+            cpt.drop(i, inplace=True)
+        cpt.reset_index(inplace=True, drop=True)
+        return cpt
+
+
+    def create_table2(self, cpts, evidence):
+        """
+        Creates a single CPT
+        :return
+        """
+        z_cols = [c for c in pd.concat(cpts, axis=0, ignore_index=True).columns if c != 'p']
+        z = pd.DataFrame(list(itertools.product(*[self.options for i in range(len(z_cols))])), columns=z_cols)
+        # Drop evidence:
+        for k,v in evidence.items():
+            if k in z_cols:
+                z = z[z[k] == v]
+        z.reset_index(inplace=True, drop=True)
+        z['p'] = [1] * z.shape[0]
+        return z
 
 
     def create_table(self):
