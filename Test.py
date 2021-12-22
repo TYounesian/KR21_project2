@@ -14,7 +14,7 @@ e = {'death': True, 'tests-match': True}
 # print("Old implemenatation:")
 # print(reasoner.mpe(e))
 print("\nNew implemenatation:")
-print(reasoner.mpe2(e))
+print(reasoner.mpe2(e, ordering="minFill"))
 # Generate network
 # network_size = 0
 # leaf_nodes = reasoner.get_leaf_nodes(reasoner.bn)

@@ -22,7 +22,6 @@ class BNReasoner:
         else:
             self.bn = net
         self.options = [True, False]
-        self.ordering = {"minFill" : self.minFillOrder(), "minDegree": self.minDegreeOrder()}
 
     def d_sep(self, variables):
         """
@@ -171,20 +170,6 @@ class BNReasoner:
             g.remove_node(pi[i])
         return w
 
-
-    def prune_edges(self, e):
-        bn = deepcopy(self.bn)
-        # Remove edges
-        for var in e.keys():
-            cpt = bn.get_cpt(var)
-            bn.update_cpt(var, cpt[cpt[var] == e[var]])
-            for children in bn.get_children(var):
-                bn.del_edge([var, children])  # Remove edges
-                # Update CPT
-                cpt = bn.get_cpt(children)
-                bn.update_cpt(children, cpt[cpt[var] == e[var]])
-        return bn
-
     def network_pruning(self, q, e):
         """
         :param q: list of values the query addresses
@@ -332,27 +317,39 @@ class BNReasoner:
         Finds the Most Probable Explanation given possible evidence e
         :return instantiation and value
         """
-        bn = self.prune_edges(e)
-        q = bn.get_all_variables()
-        pi = self.ordering[ordering]
-        s = {var: bn.get_cpt(var) for var in q}
-        for i in range(len(q)):
-            f = self.multip_factors({cp : cpt for cp, cpt in s.items() if pi[i] in cpt.columns}.values(), evidence)
-            fi = self.maxing_out(f, pi[i])
-            return ""
-
-    def multip_factors(self, cpts, evidence):
-        """
-        Multiplies the corresponding rows of the cpts
-        :return z: a cpt containing all the p-values of the cpts
-        """
-        z = self.unite_cpts(cpts, evidence)
-        for cpt in cpts:
-            for i, row_content in cpt.iterrows():
-                for i_z, row_content_z in z.iterrows():
-                    if all([row_content_z[c] == row_content[c] for c in cpt.columns if c != 'p']):
-                        z.iloc[i_z, -1] *= row_content['p']
-        return z
+        # Create a single table based on pi (and possible evidence e)
+        bn = self.network_pruning([], e)
+        s = bn.get_all_cpts()
+        # Get the elimination order
+        if ordering == "minDegree":
+            pi = [var for var in self.minDegreeOrder() if var not in e.keys()]
+        else:
+            pi = [var for var in self.minFillOrder() if var not in e.keys()]
+        checked = []
+        print("Elimination order: {}".format(pi))
+        for i in range(len(pi)):
+            print("\tEliminating {}".format(pi[i]))
+            checked.append(pi[i])
+            mentions = {}
+            for cp, cpt in s.items():
+                if pi[i] in cpt.columns:
+                    mentions[cp] = cpt
+            # Multiply the cpts that mention the node
+            z = self.create_table2(mentions.values(), e)
+            print("\t\tCreated table {}".format(z))
+            print("\t\tMultiplying factors: {}".format(mentions.keys()))
+            f = self.multiply_factors(mentions.values(), z)
+            # Max out variables
+            print("\t\tMaxing out {}".format(f))
+            f = self.maxing_out2(checked, f)
+            print("\t\t\tmaxed out")
+            #f = self.eliminate_variable(mentions.values(), pi[i], e)
+            # Replace the cpt-s with the new factor
+            s['f'+str(i)] = f
+            for k in mentions.keys():
+                del s[k]
+        # Return the most likely instantiation and it's probability
+        return s
 
 
 
@@ -441,29 +438,6 @@ class BNReasoner:
         cpt.reset_index(inplace=True, drop=True)
         return cpt
 
-    def max_out(self, f, pi_i):
-        """
-        :return A cpt with variables in ordering summed out
-        """
-        cols = [col for col in f.columns if (col != 'p') and (col != pi_i)]
-        toAdd = []
-        for i, row in f.iterrows():
-            toCheck = [row[col] for col in cols]
-            for i2, row2 in f.iterrows():
-                toCompare = [row2[col] for col in cols]
-                if toCheck == toCompare and i2 != i and (i2, i) not in toAdd:
-                    toAdd.append((i, i2))
-        toDrop = set()
-        for i in range(len(toAdd)):
-            if f.iloc[toAdd[i][1], -1] <= f.iloc[toAdd[i][0], -1]: toDrop.add(toAdd[i][1])
-            else: toDrop.add(toAdd[i][0])
-        print("\t\t Dropping rows: {}".format(toDrop))
-        for i in toDrop:
-            f.drop(i, inplace=True)
-        f.reset_index(inplace=True, drop=True)
-        return f
-
-
 
     def create_table2(self, cpts, evidence):
         """
@@ -490,17 +464,6 @@ class BNReasoner:
         z = pd.DataFrame(list(itertools.product(*[self.options for i in range(len(vars))])), columns=vars)
         z['p'] = [1] * z.shape[0]
         return z
-
-    def unite_cpts(self, cpts, evidence):
-        """
-        Creates a single CPT
-        :return
-        """
-        z = pd.DataFrame(list(itertools.product(*[self.options for i in range(len(cpts))])), columns=cpts.keys())
-        z['p'] = [1] * z.shape[0]
-        z = self.exclude_evidence(z, evidence)
-        return z
-
 
     def exclude_evidence(self, cpt, evidence):
         """
