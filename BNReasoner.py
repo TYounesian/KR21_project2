@@ -286,7 +286,6 @@ class BNReasoner:
         # Sum out all the variables non-Map
         pi = [c for c in pi if c not in vars]
         z = self.summing_out(pi, z)
-        print(z)
         # Max out the MAP variables one-by-one according to pi
         # Return the most likely instantiation and it's probability
         return z.iloc[z['p'].idxmax()]
