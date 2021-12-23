@@ -3,18 +3,21 @@ import pandas as pd
 import random
 import time
 from BayesNet import BayesNet
+import time
 
 #reasoner = BNReasoner('testing\lecture_example.BIFXML')
-#reasoner = BNReasoner('testing\car-starts.xml')
 reasoner = BNReasoner('testing\covid.BIFXML')
-
 q = ['covid']
-e = {'death': True, 'tests-match': True}
-#print(reasoner.map(q, e))
-# print("Old implemenatation:")
-# print(reasoner.mpe(e))
-print("\nNew implemenatation:")
-print(reasoner.mpe2(e))
+e = {'death': True, 'tests-match': False}
+# print(reasoner.bn.get_all_variables())
+# q = ["Wet Grass?"]
+# e = {"Winter?": True, "Rain?": False}
+pr = reasoner.marginal_dist(q,e)
+for cpt in pr:
+    print(pr[cpt])
+#print(reasoner.mpe(e))
+#print(reasoner.map(q, e, ordering="minFill"))
+
 # Generate network
 # network_size = 0
 # leaf_nodes = reasoner.get_leaf_nodes(reasoner.bn)
