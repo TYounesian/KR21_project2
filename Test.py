@@ -5,13 +5,13 @@ import time
 from BayesNet import BayesNet
 import time
 
-reasoner = BNReasoner('testing\lecture_example.BIFXML')
-# reasoner = BNReasoner('testing\covid.BIFXML')
-# q = ['covid']
-# e = {'death': True, 'tests-match': True}
-print(reasoner.bn.get_all_variables())
-q = ["Wet Grass?"]
-e = {"Winter?": True, "Rain?": False}
+#reasoner = BNReasoner('testing\lecture_example.BIFXML')
+reasoner = BNReasoner('testing\covid.BIFXML')
+q = ['covid']
+e = {'death': True, 'tests-match': False}
+# print(reasoner.bn.get_all_variables())
+# q = ["Wet Grass?"]
+# e = {"Winter?": True, "Rain?": False}
 pr = reasoner.marginal_dist(q,e)
 for cpt in pr:
     print(pr[cpt])
