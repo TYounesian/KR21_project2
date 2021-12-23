@@ -5,19 +5,19 @@ import time
 from BayesNet import BayesNet
 import time
 
-#reasoner = BNReasoner('testing\lecture_example.BIFXML')
-#reasoner = BNReasoner('testing\car-starts.xml')
-reasoner = BNReasoner('testing\covid.BIFXML')
-
-q = ['covid']
-e = {'death': True, 'tests-match': True}
-#print(reasoner.map(q, e))
-# print("Old implemenatation:")
-# print(reasoner.mpe(e))
-#reasoner.bn.draw_structure()
+reasoner = BNReasoner('testing\lecture_example.BIFXML')
+# reasoner = BNReasoner('testing\covid.BIFXML')
+# q = ['covid']
+# e = {'death': True, 'tests-match': True}
+print(reasoner.bn.get_all_variables())
+q = ["Wet Grass?"]
+e = {"Winter?": True, "Rain?": False}
+pr = reasoner.marginal_dist(q,e)
+for cpt in pr:
+    print(pr[cpt])
+#print(reasoner.mpe(e))
 #print(reasoner.map(q, e, ordering="minFill"))
-print(reasoner.map2(q, e, ordering="minFill"))
-#print(reasoner.tryConcat(['ct-scan', 'pcr']))
+
 # Generate network
 # network_size = 0
 # leaf_nodes = reasoner.get_leaf_nodes(reasoner.bn)

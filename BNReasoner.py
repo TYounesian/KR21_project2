@@ -4,9 +4,7 @@ import sys
 from copy import deepcopy
 import itertools
 import pandas as pd
-import matplotlib.pyplot as plt
-import networkx as nx
-import numpy as np
+
 pd.set_option("display.max_rows", None, "display.max_columns", None)
 
 class BNReasoner:
@@ -173,6 +171,9 @@ class BNReasoner:
 
 
     def prune_edges(self, e):
+        """
+        :return A Bayesian Network with pruned edges according to evidence e
+        """
         bn = deepcopy(self.bn)
         # Remove edges
         for var in e.keys():
@@ -192,6 +193,7 @@ class BNReasoner:
         :returns: a pruned bayesian network
         """
         bn = deepcopy(self.bn)
+        if type(q) == type(dict()): q = list(q.keys())
         # Remove edges
         for var in e.keys():
             cpt = bn.get_cpt(var)
@@ -220,89 +222,21 @@ class BNReasoner:
         bn = self.network_pruning(q, e)
         s = bn.get_all_cpts()
         pi = self.minDegreeOrder(bn)
-        for node in q:
-            pi.remove(node)
+        for evidence in e.keys():
+            del s[evidence]
+            pi.remove(evidence)
+        for node in q: pi.remove(node)
 
         for i in range(len(pi)):
-            mentions = {}
-            for cp, cpt in s.items():
-                if pi[i] in cpt.columns:
-                    mentions[cp] = cpt
-            # Multiply the cpts that mention the node
-            f = self.eliminate_variable(mentions.values(), pi[i], e)
-            # Replace the cpt-s with the new factor
-            s['f'+str(i)] = f
-            for k in mentions.keys():
-                del s[k]
-        # Normalise by evidence:
-        if e:
-            for cpt in s.values():
-                for k, v in e.items():
-                    e_cpt = bn.get_cpt(k)
-                    e_cpt = e_cpt[e_cpt['p'] != 0]
-                    toDivide = float(e_cpt[e_cpt[k] == v]['p'])
-                    cpt['p'] /= toDivide
-
+            fk = {cp: cpt for cp, cpt in s.items() if pi[i] in cpt.columns}
+            f = self.multip_factors(fk.values())
+            fi = self.sum_out(f, pi[i])
+            for k in fk.keys(): del s[k]
+            s['f' + str(i)] = fi
         return s
-
-    def eliminate_variable(self, cpts, pi_i, evidence = {}):
-        """
-        :arg: cpts: The conditional probability tables (factors) to multiply
-        :return a factor corresponding to the product
-        """
-        # Initialize a dataframe Z
-        z_cols = [c for c in pd.concat(cpts, axis=0, ignore_index=True).columns if c != 'p']
-        z = pd.DataFrame(list(itertools.product(*[self.options for i in range(len(z_cols))])), columns=z_cols)
-        z['p'] = [1] * z.shape[0]
-        z = self.exclude_evidence(z, evidence)
-        # Find rows of z that are consistent with the cpt and multiply
-        for cpt in cpts:
-            for i, row_content in cpt.iterrows():
-                for i_z, row_content_z in z.iterrows():
-                    if all([row_content_z[c] == row_content[c] for c in cpt.columns if c != 'p']):
-                        z.iloc[i_z, -1] *= row_content['p']
-        # Summing out pi(i)
-        z.drop(columns=[pi_i], inplace=True)
-        cols = [col for col in z.columns if col != 'p']
-        toAdd = set()
-        for i, row in z.iterrows():
-            toCheck = [row[col] for col in cols]
-            for i2, row2 in z.iterrows():
-                toCompare = [row2[col] for col in cols]
-                if toCheck == toCompare and i2 != i and (i2, i) not in toAdd:
-                    toAdd.add((i, i2))
-        for i in range(len(toAdd)):
-            z.iloc[list(toAdd)[i][0], -1] += z.iloc[list(toAdd)[i][1], -1]
-        for i in range(len(toAdd)):
-            z.drop(list(toAdd)[i][1], inplace=True)
-        z.reset_index(inplace=True, drop=True)
-        return z
 
 
     def map(self, vars, e={}, ordering="minFill"):
-        """
-        Maximises the value and instantiation of variables m given evidence e
-        :return instantiation and value
-        """
-        # Get the elimination order
-        if ordering == "minDegree":
-            pi = self.minDegreeOrder()
-        else:
-            pi = self.minFillOrder()
-        # Create a single table based on pi (and possible evidence e)
-        z = self.create_table()
-        z = self.exclude_evidence(z, e)
-        # Multiply all the variables
-        to_multiply = [self.bn.get_cpt(col) for col in pi]
-        z = self.multiply_factors(to_multiply, z)
-        # Sum out all the variables non-Map
-        pi = [c for c in pi if c not in vars]
-        z = self.summing_out(pi, z)
-        # Max out the MAP variables one-by-one according to pi
-        # Return the most likely instantiation and it's probability
-        return z.iloc[z['p'].idxmax()]
-
-    def map2(self, vars, e={}, ordering="minFill"):
         """
         Maximises the value and instantiation of variables m given evidence e
         :return instantiation and value
@@ -314,7 +248,7 @@ class BNReasoner:
         s = {var: bn.get_cpt(var) for var in q} # Create a single table based on pi (and possible evidence e)
         for i in range(len(pi)):
             fk = {cp: cpt for cp, cpt in s.items() if pi[i] in cpt.columns}
-            f = self.multip_factors(fk.values(), e)
+            f = self.multip_factors(fk.values())
             if pi[i] in vars:
                 fi = self.max_out(f, [pi[i]])
             else:
@@ -338,19 +272,18 @@ class BNReasoner:
         s = {var: bn.get_cpt(var) for var in q}
         for i in range(len(q)):
             fk = {cp : cpt for cp, cpt in s.items() if pi[i] in cpt.columns}
-            f = self.multip_factors(fk.values(), e)
+            f = self.multip_factors(fk.values())
             checked_vars.append(pi[i])
             fi = self.max_out(f, checked_vars)
             for k in fk.keys(): del s[k]
             s['f' + str(i)] = fi
         return s
 
-    def multip_factors(self, cpts, evidence):
+    def multip_factors(self, cpts):
         """
         Multiplies the corresponding rows of the cpts
         :return z: a cpt containing all the p-values of the cpts
         """
-        #z = self.unite_cpts(cpts, evidence)
         z = self.union_of_cpts(cpts)
         for cpt in cpts:
             for i, row_content in cpt.iterrows():
@@ -359,92 +292,6 @@ class BNReasoner:
                         z.iloc[i_z, -1] *= row_content['p']
         return z
 
-
-
-    def multiply_factors(self, cpts, z):
-        """
-        Multiplies the corresponding rows of the cpts and z
-        :return z: a cpt containing all the p-values of the cpts
-        """
-        for cpt in cpts:
-            for i, row_content in cpt.iterrows():
-                for i_z, row_content_z in z.iterrows():
-                    if all([row_content_z[c] == row_content[c] for c in cpt.columns if c != 'p']):
-                        z.iloc[i_z, -1] *= row_content['p']
-        return z
-
-    def summing_out(self, ordering, cpt):
-        """
-        :return A cpt with variables in ordering summed out
-        """
-        for var in ordering:
-            cpt.drop(columns=[var], inplace=True)
-            cols = [col for col in cpt.columns if col != 'p']
-            toAdd = []
-            for i, row in cpt.iterrows():
-                toCheck = [row[col] for col in cols]
-                for i2, row2 in cpt.iterrows():
-                    toCompare = [row2[col] for col in cols]
-                    if toCheck == toCompare and i2 != i and (i2, i) not in toAdd:
-                        toAdd.append((i, i2))
-
-            for i in range(len(toAdd)):
-                cpt.iloc[toAdd[i][0], -1] += cpt.iloc[toAdd[i][1], -1]
-            for i in range(len(toAdd)):
-                cpt.drop(toAdd[i][1], inplace=True)
-            cpt.reset_index(inplace=True, drop=True)
-        return cpt
-
-    def maxing_out(self, ordering, cpt):
-        """
-        :return A cpt with variables in ordering summed out
-        """
-        checked = []
-        for var in ordering:
-            #cpt.drop(columns=[var], inplace=True)
-            #cols = [col for col in cpt.columns if col != 'p']
-            checked.append(var)
-            cols = [col for col in cpt.columns if ((col != 'p') and (col not in checked))]
-            toAdd = []
-            for i, row in cpt.iterrows():
-                toCheck = [row[col] for col in cols]
-                for i2, row2 in cpt.iterrows():
-                    toCompare = [row2[col] for col in cols]
-                    if toCheck == toCompare and i2 != i and (i2, i) not in toAdd:
-                        toAdd.append((i, i2))
-            toDrop = []
-            for i in range(len(toAdd)):
-                if cpt.iloc[toAdd[i][1], -1] <= cpt.iloc[toAdd[i][0], -1]: toDrop.append(toAdd[i][1])
-                else: toDrop.append(toAdd[i][0])
-                #cpt.iloc[toAdd[i][0], -1] = max(cpt.iloc[toAdd[i][1], -1], cpt.iloc[toAdd[i][0], -1])
-            # for i in range(len(toAdd)):
-            #     cpt.drop(toAdd[i][1], inplace=True)
-            for i in toDrop:
-                cpt.drop(i, inplace=True)
-            cpt.reset_index(inplace=True, drop=True)
-        return cpt
-
-    def maxing_out2(self, checked, cpt):
-        """
-        :return A cpt with variables in ordering summed out
-        """
-        cols = [col for col in cpt.columns if (col != 'p') and (col not in checked)]
-        toAdd = []
-        for i, row in cpt.iterrows():
-            toCheck = [row[col] for col in cols]
-            for i2, row2 in cpt.iterrows():
-                toCompare = [row2[col] for col in cols]
-                if toCheck == toCompare and i2 != i and (i2, i) not in toAdd:
-                    toAdd.append((i, i2))
-        toDrop = set()
-        for i in range(len(toAdd)):
-            if cpt.iloc[toAdd[i][1], -1] <= cpt.iloc[toAdd[i][0], -1]: toDrop.add(toAdd[i][1])
-            else: toDrop.add(toAdd[i][0])
-        print("\t\t Dropping rows: {}".format(toDrop))
-        for i in toDrop:
-            cpt.drop(i, inplace=True)
-        cpt.reset_index(inplace=True, drop=True)
-        return cpt
 
     def max_out(self, f, checked):
         """
@@ -473,7 +320,6 @@ class BNReasoner:
         """
         f.drop(columns=var, inplace=True)
         cols = [col for col in f.columns if col != 'p']
-        #cols = [col for col in f.columns if ((col != 'p') and (col != var))]
         toAdd = []
         for i, row in f.iterrows():
             toCheck = [row[col] for col in cols]
@@ -481,70 +327,12 @@ class BNReasoner:
                 toCompare = [row2[col] for col in cols]
                 if toCheck == toCompare and i2 != i and (i2, i) not in toAdd:
                     toAdd.append((i, i2))
-
         for i in range(len(toAdd)):
             f.iloc[toAdd[i][0], -1] += f.iloc[toAdd[i][1], -1]
         for i in range(len(toAdd)):
             f.drop(toAdd[i][1], inplace=True)
         f.reset_index(inplace=True, drop=True)
-        #toDrop = set()
-        # for i in range(len(toAdd)):
-        #     if f.iloc[toAdd[i][1], -1] <= f.iloc[toAdd[i][0], -1]: toDrop.add(toAdd[i][1])
-        #     else: toDrop.add(toAdd[i][0])
-        # for i in toDrop:
-        #     f.drop(i, inplace=True)
-        f.reset_index(inplace=True, drop=True)
         return f
-
-    def create_table2(self, cpts, evidence):
-        """
-        Creates a single CPT
-        :return
-        """
-        z_cols = [c for c in pd.concat(cpts, axis=0, ignore_index=True).columns if c != 'p']
-        z = pd.DataFrame(list(itertools.product(*[self.options for i in range(len(z_cols))])), columns=z_cols)
-        # Drop evidence:
-        for k,v in evidence.items():
-            if k in z_cols:
-                z = z[z[k] == v]
-        z.reset_index(inplace=True, drop=True)
-        z['p'] = [1] * z.shape[0]
-        return z
-
-
-    def create_table(self):
-        """
-        Creates a single CPT
-        :return
-        """
-        vars = self.bn.get_all_variables()
-        z = pd.DataFrame(list(itertools.product(*[self.options for i in range(len(vars))])), columns=vars)
-        z['p'] = [1] * z.shape[0]
-        return z
-
-    def unite_cpts(self, cpts, evidence):
-        """
-        Creates a single CPT
-        :return
-        """
-        columns = list(set([col for cpt in cpts for col in cpt.columns if col != 'p']))
-        z = pd.DataFrame(list(itertools.product(*[self.options for i in range(len(columns))])), columns=columns)
-        z['p'] = [1] * z.shape[0]
-        z = self.exclude_evidence(z, evidence)
-        print("previous algorithm")
-        print(z)
-        print("\nNew algorithm")
-        #for cpt in cpts:
-        dummy_cpts = [cpt.drop(columns='p') for cpt in cpts]
-        dummy_cpts = list(dummy_cpts)
-        z = dummy_cpts[0]
-        for i in range(1, len(dummy_cpts)):
-            z = pd.merge(z, dummy_cpts[i])
-        z['p'] = [1] * z.shape[0]
-        z.reset_index(inplace=True, drop=True)
-        print(z)
-        print("\n\n**************************************************************************************\n\n")
-        return z
 
     def union_of_cpts(self, cpts):
         """
@@ -559,30 +347,3 @@ class BNReasoner:
         z.reset_index(inplace=True, drop=True)
         return z
 
-
-    def tryConcat(self, vars):
-        cpts = [self.bn.get_cpt(var) for var in vars]
-        for cpt in cpts:
-            cpt.drop(columns='p', inplace=True)
-            print(cpt)
-
-        print("Concatting the two cpts gives")
-        z = pd.concat(cpts, axis=1)
-        print(z)
-        print("\nMerging the two cpts gives")
-        z = pd.merge(cpts[0], cpts[1])
-        z.reset_index(inplace=True, drop=True)
-        print(z)
-        #result = pd.concat([df1, df4], axis=1)
-
-    def exclude_evidence(self, cpt, evidence):
-        """
-        :return Returns the CPT without the rows contradicting the evidence
-        """
-        if not evidence: return cpt
-        else:
-            for key in evidence.keys():
-                if key in cpt.columns:
-                    cpt = cpt[cpt[key] == evidence[key]]
-            cpt.reset_index(inplace=True, drop=True)
-        return cpt
