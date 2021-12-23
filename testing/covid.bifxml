@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="US-ASCII"?>
+
+<!--The covid-19 problem defined by Taraneh Younesian, Mark Adamik fir KR project VU, Amsterdam Dec 2021 -->
+
+<!--
+	Bayesian network in XMLBIF v0.3 (BayesNet Interchange Format)
+-->
+
+
+
+<!-- DTD for the XMLBIF 0.3 format -->
+<!DOCTYPE BIF [
+	<!ELEMENT BIF ( NETWORK )*>
+	      <!ATTLIST BIF VERSION CDATA #REQUIRED>
+	<!ELEMENT NETWORK ( NAME, ( PROPERTY | VARIABLE | DEFINITION )* )>
+	<!ELEMENT NAME (#PCDATA)>
+	<!ELEMENT VARIABLE ( NAME, ( OUTCOME |  PROPERTY )* ) >
+	      <!ATTLIST VARIABLE TYPE (nature|decision|utility) "nature">
+	<!ELEMENT OUTCOME (#PCDATA)>
+	<!ELEMENT DEFINITION ( FOR | GIVEN | TABLE | PROPERTY )* >
+	<!ELEMENT FOR (#PCDATA)>
+	<!ELEMENT GIVEN (#PCDATA)>
+	<!ELEMENT TABLE (#PCDATA)>
+	<!ELEMENT PROPERTY (#PCDATA)>
+]>
+
+
+<BIF VERSION="0.3">
+<NETWORK>
+<NAME>Covid-Problem</NAME>
+
+<!-- Variables -->
+<VARIABLE TYPE="nature">
+	<NAME>vaccinated</NAME>
+	<OUTCOME>true</OUTCOME>
+	<OUTCOME>false</OUTCOME>
+	<PROPERTY>position = (73, 165)</PROPERTY>
+</VARIABLE>
+
+<VARIABLE TYPE="nature">
+	<NAME>weak-immune</NAME>
+	<OUTCOME>true</OUTCOME>
+	<OUTCOME>false</OUTCOME>
+	<PROPERTY>position = (190, 69)</PROPERTY>
+</VARIABLE>
+
+<VARIABLE TYPE="nature">
+	<NAME>smoker</NAME>
+	<OUTCOME>true</OUTCOME>
+	<OUTCOME>false</OUTCOME>
+	<PROPERTY>position = (155, 165)</PROPERTY>
+</VARIABLE>
+
+<VARIABLE TYPE="nature">
+	<NAME>covid</NAME>
+	<OUTCOME>true</OUTCOME>
+	<OUTCOME>false</OUTCOME>
+	<PROPERTY>position = (154, 241)</PROPERTY>
+</VARIABLE>
+
+<VARIABLE TYPE="nature">
+	<NAME>self-test</NAME>
+	<OUTCOME>true</OUTCOME>
+	<OUTCOME>false</OUTCOME>
+	<PROPERTY>position = (86, 74)</PROPERTY>
+</VARIABLE>
+
+<VARIABLE TYPE="nature">
+	<NAME>ct-scan</NAME>
+	<OUTCOME>true</OUTCOME>
+	<OUTCOME>false</OUTCOME>
+	<PROPERTY>position = (112, 69)</PROPERTY>
+</VARIABLE>
+
+<VARIABLE TYPE="nature">
+	<NAME>pcr</NAME>
+	<OUTCOME>true</OUTCOME>
+	<OUTCOME>false</OUTCOME>
+	<PROPERTY>position = (92, 44)</PROPERTY>
+</VARIABLE>
+
+<VARIABLE TYPE="nature">
+	<NAME>icu</NAME>
+	<OUTCOME>true</OUTCOME>
+	<OUTCOME>false</OUTCOME>
+	<PROPERTY>position = (105, 39)</PROPERTY>
+</VARIABLE>
+
+<VARIABLE TYPE="nature">
+	<NAME>tests-match</NAME>
+	<OUTCOME>true</OUTCOME>
+	<OUTCOME>false</OUTCOME>
+	<PROPERTY>position = (100, 49)</PROPERTY>
+</VARIABLE>
+
+<VARIABLE TYPE="nature">
+	<NAME>death</NAME>
+	<OUTCOME>true</OUTCOME>
+	<OUTCOME>false</OUTCOME>
+	<PROPERTY>position = (119, 89)</PROPERTY>
+</VARIABLE>
+
+<!-- Probability distributions -->
+<DEFINITION>
+	<FOR>vaccinated</FOR>
+	<TABLE>0.26 0.74 </TABLE>
+</DEFINITION>
+
+<DEFINITION>
+	<FOR>weak-immune</FOR>
+	<TABLE>0.97 0.03 </TABLE>
+</DEFINITION>
+
+<DEFINITION>
+	<FOR>smoker</FOR>
+	<TABLE>0.78 0.22 </TABLE>
+</DEFINITION>
+
+<DEFINITION>
+	<FOR>covid</FOR>
+	<GIVEN>smoker</GIVEN>
+	<GIVEN>weak-immune</GIVEN>
+	<GIVEN>vaccinated</GIVEN>
+	<TABLE>0.35 0.65 0.15 0.85 0.25 0.75 0.20 0.80 0.90 0.1 0.80 0.20 0.75 0.25 0.70 0.30 </TABLE>
+</DEFINITION>
+
+<DEFINITION>
+	<FOR>self-test</FOR>
+	<GIVEN>covid</GIVEN>
+	<GIVEN>smoker</GIVEN>
+	<TABLE>0.99 0.01 0.19 0.81 0.98 0.02 0.13 0.87 </TABLE>
+</DEFINITION>
+
+<DEFINITION>
+	<FOR>ct-scan</FOR>
+	<GIVEN>covid</GIVEN>
+	<GIVEN>weak-immune</GIVEN>
+	<TABLE>0.99 0.01 0.10 0.90 0.98 0.02 0.04 0.96 </TABLE>
+</DEFINITION>
+
+<DEFINITION>
+	<FOR>pcr</FOR>
+	<GIVEN>ct-scan</GIVEN>
+	<GIVEN>self-test</GIVEN>
+	<GIVEN>covid</GIVEN>
+	<TABLE>0.96 0.04 0.95 0.05 0.92 0.08 0.90 0.10 0.20 0.80 0.12 0.88 0.18 0.82 0.09 0.91 </TABLE>
+</DEFINITION>
+
+<DEFINITION>
+	<FOR>tests-match</FOR>
+	<GIVEN>self-test</GIVEN>
+	<GIVEN>pcr</GIVEN>
+	<TABLE>0 1 1 0 1 0 0 1 </TABLE>
+</DEFINITION>
+
+<DEFINITION>
+	<GIVEN>pcr</GIVEN>
+	<GIVEN>ct-scan</GIVEN>
+	<FOR>icu</FOR>
+	<TABLE>0.88 0.12 0.87 0.13 0.85 0.15 0.80 0.20 </TABLE>
+</DEFINITION>
+
+<DEFINITION>
+	<FOR>death</FOR>
+	<GIVEN>icu</GIVEN>
+	<GIVEN>pcr</GIVEN>
+	<TABLE>0.91 0.09 0.25 0.75 0.95 0.05 0.37 0.63 </TABLE>
+</DEFINITION>
+
+
+
+</NETWORK>
+</BIF>
