@@ -3,6 +3,7 @@ import pandas as pd
 import random
 import time
 from BayesNet import BayesNet
+import time
 
 #reasoner = BNReasoner('testing\lecture_example.BIFXML')
 #reasoner = BNReasoner('testing\car-starts.xml')
@@ -13,8 +14,10 @@ e = {'death': True, 'tests-match': True}
 #print(reasoner.map(q, e))
 # print("Old implemenatation:")
 # print(reasoner.mpe(e))
-print("\nNew implemenatation:")
-print(reasoner.mpe2(e, ordering="minFill"))
+#reasoner.bn.draw_structure()
+#print(reasoner.map(q, e, ordering="minFill"))
+print(reasoner.map2(q, e, ordering="minFill"))
+#print(reasoner.tryConcat(['ct-scan', 'pcr']))
 # Generate network
 # network_size = 0
 # leaf_nodes = reasoner.get_leaf_nodes(reasoner.bn)

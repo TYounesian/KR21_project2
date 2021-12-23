@@ -7,7 +7,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
-
+pd.set_option("display.max_rows", None, "display.max_columns", None)
 
 class BNReasoner:
     def __init__(self, net: Union[str, BayesNet]):
@@ -302,51 +302,56 @@ class BNReasoner:
         # Return the most likely instantiation and it's probability
         return z.iloc[z['p'].idxmax()]
 
+    def map2(self, vars, e={}, ordering="minFill"):
+        """
+        Maximises the value and instantiation of variables m given evidence e
+        :return instantiation and value
+        """
+        bn = self.network_pruning(vars, e)  # Prune network
+        pi = [self.minFillOrder(bn) if ordering == "minFill" else self.minDegreeOrder(bn)][0]  # Elimination order
+        pi = [v for v in pi if v not in vars] + vars
+        q = bn.get_all_variables()
+        s = {var: bn.get_cpt(var) for var in q} # Create a single table based on pi (and possible evidence e)
+        for i in range(len(pi)):
+            fk = {cp: cpt for cp, cpt in s.items() if pi[i] in cpt.columns}
+            f = self.multip_factors(fk.values(), e)
+            if pi[i] in vars:
+                fi = self.max_out(f, [pi[i]])
+            else:
+                fi = self.sum_out(f, pi[i])
+            for k in fk.keys(): del s[k]
+            factor = 'f' + str(i)
+            s[factor] = fi
+        # Return the most likely instantiation and it's probability
+        return s[factor].iloc[s[factor]['p'].idxmax()]
+
+
     def mpe(self, e={}, ordering="minFill"):
         """
         Finds the Most Probable Explanation given possible evidence e
         :return instantiation and value
         """
-        """
-        Maximises the value and instantiation of variables m given evidence e
-        :return instantiation and value
-        """
-        # Get the elimination order
-        if ordering == "minDegree":
-            pi = self.minDegreeOrder()
-        else:
-            pi = self.minFillOrder()
-        # Create a single table based on pi (and possible evidence e)
-        z = self.create_table()
-        z = self.exclude_evidence(z, e)
-        # Multiply all the variables
-        to_multiply = [self.bn.get_cpt(col) for col in pi]
-        z = self.multiply_factors(to_multiply, z)
-        # Max out variables one-by-one according to pi
-        max_prob = self.maxing_out(pi, z)
-        # Return the most likely instantiation and it's probability
-        return max_prob
-
-    def mpe2(self, e={}, ordering="minFill"):
-        """
-        Finds the Most Probable Explanation given possible evidence e
-        :return instantiation and value
-        """
+        checked_vars = []
         bn = self.prune_edges(e)
         q = bn.get_all_variables()
-        pi = self.ordering[ordering]
+        pi = [self.minFillOrder(bn) if ordering == "minFill" else self.minDegreeOrder(bn)][0]
         s = {var: bn.get_cpt(var) for var in q}
         for i in range(len(q)):
-            f = self.multip_factors({cp : cpt for cp, cpt in s.items() if pi[i] in cpt.columns}.values(), evidence)
-            fi = self.maxing_out(f, pi[i])
-            return ""
+            fk = {cp : cpt for cp, cpt in s.items() if pi[i] in cpt.columns}
+            f = self.multip_factors(fk.values(), e)
+            checked_vars.append(pi[i])
+            fi = self.max_out(f, checked_vars)
+            for k in fk.keys(): del s[k]
+            s['f' + str(i)] = fi
+        return s
 
     def multip_factors(self, cpts, evidence):
         """
         Multiplies the corresponding rows of the cpts
         :return z: a cpt containing all the p-values of the cpts
         """
-        z = self.unite_cpts(cpts, evidence)
+        #z = self.unite_cpts(cpts, evidence)
+        z = self.union_of_cpts(cpts)
         for cpt in cpts:
             for i, row_content in cpt.iterrows():
                 for i_z, row_content_z in z.iterrows():
@@ -441,11 +446,11 @@ class BNReasoner:
         cpt.reset_index(inplace=True, drop=True)
         return cpt
 
-    def max_out(self, f, pi_i):
+    def max_out(self, f, checked):
         """
         :return A cpt with variables in ordering summed out
         """
-        cols = [col for col in f.columns if (col != 'p') and (col != pi_i)]
+        cols = [col for col in f.columns if (col != 'p') and (col not in checked)]
         toAdd = []
         for i, row in f.iterrows():
             toCheck = [row[col] for col in cols]
@@ -457,13 +462,39 @@ class BNReasoner:
         for i in range(len(toAdd)):
             if f.iloc[toAdd[i][1], -1] <= f.iloc[toAdd[i][0], -1]: toDrop.add(toAdd[i][1])
             else: toDrop.add(toAdd[i][0])
-        print("\t\t Dropping rows: {}".format(toDrop))
         for i in toDrop:
             f.drop(i, inplace=True)
         f.reset_index(inplace=True, drop=True)
         return f
 
+    def sum_out(self, f, var):
+        """
+        :return A cpt with variables in ordering summed out
+        """
+        f.drop(columns=var, inplace=True)
+        cols = [col for col in f.columns if col != 'p']
+        #cols = [col for col in f.columns if ((col != 'p') and (col != var))]
+        toAdd = []
+        for i, row in f.iterrows():
+            toCheck = [row[col] for col in cols]
+            for i2, row2 in f.iterrows():
+                toCompare = [row2[col] for col in cols]
+                if toCheck == toCompare and i2 != i and (i2, i) not in toAdd:
+                    toAdd.append((i, i2))
 
+        for i in range(len(toAdd)):
+            f.iloc[toAdd[i][0], -1] += f.iloc[toAdd[i][1], -1]
+        for i in range(len(toAdd)):
+            f.drop(toAdd[i][1], inplace=True)
+        f.reset_index(inplace=True, drop=True)
+        #toDrop = set()
+        # for i in range(len(toAdd)):
+        #     if f.iloc[toAdd[i][1], -1] <= f.iloc[toAdd[i][0], -1]: toDrop.add(toAdd[i][1])
+        #     else: toDrop.add(toAdd[i][0])
+        # for i in toDrop:
+        #     f.drop(i, inplace=True)
+        f.reset_index(inplace=True, drop=True)
+        return f
 
     def create_table2(self, cpts, evidence):
         """
@@ -496,11 +527,53 @@ class BNReasoner:
         Creates a single CPT
         :return
         """
-        z = pd.DataFrame(list(itertools.product(*[self.options for i in range(len(cpts))])), columns=cpts.keys())
+        columns = list(set([col for cpt in cpts for col in cpt.columns if col != 'p']))
+        z = pd.DataFrame(list(itertools.product(*[self.options for i in range(len(columns))])), columns=columns)
         z['p'] = [1] * z.shape[0]
         z = self.exclude_evidence(z, evidence)
+        print("previous algorithm")
+        print(z)
+        print("\nNew algorithm")
+        #for cpt in cpts:
+        dummy_cpts = [cpt.drop(columns='p') for cpt in cpts]
+        dummy_cpts = list(dummy_cpts)
+        z = dummy_cpts[0]
+        for i in range(1, len(dummy_cpts)):
+            z = pd.merge(z, dummy_cpts[i])
+        z['p'] = [1] * z.shape[0]
+        z.reset_index(inplace=True, drop=True)
+        print(z)
+        print("\n\n**************************************************************************************\n\n")
         return z
 
+    def union_of_cpts(self, cpts):
+        """
+        :return A union of the cpts given as input
+        """
+        temp_cpt = [cpt.drop(columns='p') for cpt in cpts]
+        temp_cpt = list(temp_cpt)
+        z = temp_cpt[0]
+        for i in range(1, len(temp_cpt)):
+            z = pd.merge(z, temp_cpt[i])
+        z['p'] = [1] * z.shape[0]
+        z.reset_index(inplace=True, drop=True)
+        return z
+
+
+    def tryConcat(self, vars):
+        cpts = [self.bn.get_cpt(var) for var in vars]
+        for cpt in cpts:
+            cpt.drop(columns='p', inplace=True)
+            print(cpt)
+
+        print("Concatting the two cpts gives")
+        z = pd.concat(cpts, axis=1)
+        print(z)
+        print("\nMerging the two cpts gives")
+        z = pd.merge(cpts[0], cpts[1])
+        z.reset_index(inplace=True, drop=True)
+        print(z)
+        #result = pd.concat([df1, df4], axis=1)
 
     def exclude_evidence(self, cpt, evidence):
         """
