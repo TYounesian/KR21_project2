@@ -3,60 +3,53 @@ import pandas as pd
 import random
 import time
 from BayesNet import BayesNet
-import time
+from matplotlib import pyplot as plt
 
-#reasoner = BNReasoner('testing\lecture_example.BIFXML')
 reasoner = BNReasoner('testing\covid.BIFXML')
-q = ['covid']
-e = {'death': True, 'tests-match': False}
-# print(reasoner.bn.get_all_variables())
-# q = ["Wet Grass?"]
-# e = {"Winter?": True, "Rain?": False}
-pr = reasoner.marginal_dist(q,e)
-# for cpt in pr:
-#     print(pr[cpt])
-#print(reasoner.mpe(e))
-#print(reasoner.map(q, e, ordering="minFill"))
 
-#Generate network
-network_size = 100
-leaf_nodes = reasoner.get_leaf_nodes(reasoner.bn)
-print("Generating network")
-for i in range(network_size):
-    new_node = "node_" + str(i)
-    evidence_vars = random.choices(reasoner.bn.get_all_variables(), k=random.choice([1, 2, 3]))
+min_networkSize = 90
+max_networkSize = 140
 
-    leaf_node = reasoner.get_leaf_nodes(reasoner.bn)[0]
-    cpt = pd.DataFrame({leaf_node : [True, False, True, False],
-                        new_node : [True, True, False, False],
-                        'p' : [0.1, 0.9, 0.2, 0.8]})
-    reasoner.bn.add_var(new_node, cpt=cpt)
-    reasoner.bn.add_edge((leaf_node, new_node))
-all_wars = reasoner.bn.get_all_variables()
 print("Staring measurements")
-n_vars = 1
-minFill = {}
-for i in range(1, 100):
-    evidence_vars = random.choices(all_wars, k=n_vars)
-    evidence = {}
-    for v in evidence_vars:
-        evidence[v] = random.choice([False, True])
-    query_var = random.choices(list(set(all_wars) - set(evidence_vars)), k=n_vars)
-    start = time.time()
-    reasoner.map(query_var, evidence)
-    end = time.time()
-    timing = end - start
-    minFill[n_vars] = timing
-    n_vars = i * 10
-    print(minFill)
 
-#print(reasoner.map(q,e))
-#print(reasoner.bn)
-# reasoner = BNReasoner('testing\lecture_example2.BIFXML')
-# Classrooom example for MPE
-# e = {'J' :True, 'O':False}
-# print(reasoner.mpe(e))
-# Classrooom example for MAP
-# q = ['I', 'J']
-# e = {'O' :True}
-# print(reasoner.map(q, e))
+measurements_map = pd.DataFrame([], columns=['Ordering', 'NetworkSize', 'VarSize', 'EvidenceSize', 'TimeTaken'])
+for order in ["minFill", "minDegree"]:
+    for net_size in range(min_networkSize, max_networkSize, 10):
+        reasoner = BNReasoner('testing\covid.BIFXML')
+        reasoner.extend_random_network(net_size, (1, 3))
+        all_variables = reasoner.bn.get_all_variables()
+        print(len(all_variables))
+        for q in range(6):
+            q_vars = max(q * 10, 1)
+            print("\t{} Variables".format(q_vars))
+            for e in range(6):
+                e_vars = max(e * 10, 1)
+                print("\t\t{} evidence".format(e_vars))
+                evidence_vars = random.choices(all_variables, k=e_vars)
+                evidence = {v: random.choice([False, True]) for v in evidence_vars}
+                query_var = random.choices(list(set(all_variables) - set(evidence_vars)), k=q_vars)
+                start = time.time()
+                reasoner.map(query_var, evidence, ordering=order)
+                end = time.time()
+                timeTaken = end - start
+                measurements_map.loc[len(measurements_map.index)] = [order, len(all_variables), e_vars, q_vars, timeTaken]
+measurements_map.to_csv("map_measurements.csv")
+
+measurements_mpe = pd.DataFrame([], columns=['Ordering', 'NetworkSize', 'EvidenceSize', 'TimeTaken'])
+for order in ["minFill", "minDegree"]:
+    for net_size in range(min_networkSize, max_networkSize, 100):
+        reasoner = BNReasoner('testing\covid.BIFXML')
+        reasoner.extend_random_network(net_size, (1, 3))
+        all_variables = reasoner.bn.get_all_variables()
+        print(len(all_variables))
+        for e in range(1, 5):
+            e_vars = max(e * 10, 1)
+            print("\t\t{} evidence".format(e_vars))
+            evidence_vars = random.choices(all_variables, k=e_vars)
+            evidence = {v: random.choice([False, True]) for v in evidence_vars}
+            start = time.time()
+            reasoner.mpe(evidence, ordering=order)
+            end = time.time()
+            timeTaken = end - start
+            measurements_mpe.loc[len(measurements_mpe.index)] = [order, net_size, e_vars, timeTaken]
+measurements_mpe.to_csv("mpe_measurements.csv")

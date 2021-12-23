@@ -4,6 +4,7 @@ import sys
 from copy import deepcopy
 import itertools
 import pandas as pd
+import random
 
 pd.set_option("display.max_rows", None, "display.max_columns", None)
 
@@ -347,3 +348,21 @@ class BNReasoner:
         z.reset_index(inplace=True, drop=True)
         return z
 
+    def extend_random_network(self, num_nodes=int, num_edges=tuple):
+        """
+        Extends the already existing bayesian network with variables and edges connecting them to random nodes
+        For the purposes of this project the probabilities are always initialized to be 0.5
+        :arg num_nodes: The number of nodes the network should be extended to
+        :arg num_edges: A tuple containing the minimum and maximum number of edges each node should be connected with
+        :returns a randomly generated bayesian network
+        """
+        for i in range(num_nodes):
+            new_node = "node_" + str(i)
+            edges = random.sample(self.bn.get_all_variables(), k=random.choice([i for i in range(*num_edges)]))
+            cols = edges + [new_node]
+            cpt = pd.DataFrame(list(itertools.product(*[self.options for i in range(len(cols))])), columns=cols)
+            cpt['p'] = 0.5
+            self.bn.add_var(new_node, cpt=cpt)
+            for node in edges:
+                self.bn.add_edge((node, new_node))
+        return self.bn
