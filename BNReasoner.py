@@ -57,6 +57,7 @@ class BNReasoner:
             if not set(self.get_leaf_nodes(bn)) - set(x + y + z):  # Break when only leaf nodes are in x + y + z
                 break
         # Path searching:
+        bn.draw_structure()
         return self.bfs(bn, x, y)
 
 

@@ -3,21 +3,14 @@
   <component name="CsvFileAttributes">
     <option name="attributeMap">
       <map>
-        <entry key="\BNReasoner.py">
-          <value>
-            <Attribute>
-              <option name="separator" value=":" />
-            </Attribute>
-          </value>
-        </entry>
-        <entry key="\Test.py">
+        <entry key="\map_measurements-sameReasoner.csv">
           <value>
             <Attribute>
               <option name="separator" value="," />
             </Attribute>
           </value>
         </entry>
-        <entry key="\map_measurements.csv">
+        <entry key="\mpe_measurements-sameReasoner.csv">
           <value>
             <Attribute>
               <option name="separator" value="," />
